@@ -5,7 +5,11 @@ from collections import Counter
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 import altair as alt
+import subprocess
+import importlib.util
 
+if importlib.util.find_spec("en_core_web_sm") is None:
+    subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
 
 try:
     nlp_es = spacy.load("es_core_news_sm")
