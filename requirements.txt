@@ -1,6 +1,8 @@
-streamlit
 spacy
+es_core_news_sm
+en_core_web_sm
 pandas
 matplotlib
 wordcloud
 altair
+streamlit
