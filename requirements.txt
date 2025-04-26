@@ -1,6 +1,6 @@
 spacy==3.7.2
 es_core_news_sm==3.1.0
-en_core_web_sm==3.5.0
+python -m spacy download en_core_web_sm
 pandas
 matplotlib
 wordcloud
