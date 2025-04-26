@@ -1,6 +1,6 @@
-spacy
-es_core_news_sm
-en_core_web_sm
+spacy==3.7.2
+es_core_news_sm==3.7.2
+en_core_web_sm==3.7.2
 pandas
 matplotlib
 wordcloud
