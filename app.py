@@ -1,5 +1,10 @@
 import streamlit as st
+import os
 import nltk
+
+nltk_data_path = os.path.join(os.getcwd(), "nltk_data")
+nltk.data.path.append(nltk_data_path)
+
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from collections import Counter
