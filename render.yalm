@@ -5,5 +5,4 @@ services:
     plan: free
     buildCommand: |
       pip install -r requirements.txt
-      python -m spacy download es_core_news_sm
     startCommand: streamlit run app.py --server.port 8080 --server.address 0.0.0.0
