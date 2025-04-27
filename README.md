@@ -1,4 +1,4 @@
 # TextComparator
 
-**Try it!!** -> https://textcomparator.streamlit.app/
+**Try it!!** -> https://textcomparator-9w7v.onrender.com/
 
