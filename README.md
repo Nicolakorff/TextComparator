@@ -75,9 +75,16 @@ Contributions to this project are welcome. If you have ideas for improving the a
 
 ## Author
 
-[Nicola Korff] (https://github.com/Nicolakorff/)
+Nicola Korff [My Github](https://github.com/Nicolakorff/)
 
 ## License
 
-[MIT License]
+MIT License
+
+
+![Captura de pantalla 2025-04-27 a las 11 26 18](https://github.com/user-attachments/assets/0b2d0604-f488-43bc-8f85-e705870dbb31)
+![Captura de pantalla 2025-04-27 a las 11 26 29](https://github.com/user-attachments/assets/71dc2c65-06af-4073-9d69-5d22362002b7)
+![Captura de pantalla 2025-04-27 a las 11 55 13](https://github.com/user-attachments/assets/cff3e991-34dc-4b38-a535-83ff7dd74776)
+![Captura de pantalla 2025-04-27 a las 11 53 15](https://github.com/user-attachments/assets/2c594605-0454-475d-b92f-f4e22195eb7e)
+![Captura de pantalla 2025-04-27 a las 11 53 27](https://github.com/user-attachments/assets/8eb82aae-fc2f-4562-89f7-bea77816719b)
 
