@@ -1,11 +1,9 @@
 import streamlit as st
-import os
 import nltk
+import os
 
 nltk_data_path = os.path.join(os.getcwd(), "nltk_data")
-nltk.data.path.append(nltk_data_path)
-nltk_tokenizers_path = os.path.join(nltk_data_path, "tokenizers")
-nltk.data.path.append(nltk_tokenizers_path)
+nltk.data.path.insert(0, nltk_data_path)
 
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
@@ -15,29 +13,29 @@ import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 import altair as alt
 
-
 try:
     stopwords_es = set(stopwords.words('spanish'))
 except LookupError:
-    nltk.download('stopwords')
-    stopwords_es = set(stopwords.words('spanish'))
+    st.error("Error: El corpus 'stopwords' para español no se encontró. Asegúrate de que esté en nltk_data/corpora/stopwords/spanish")
+    st.stop()
 
 try:
     stopwords_en = set(stopwords.words('english'))
 except LookupError:
-    nltk.download('stopwords')
-    stopwords_en = set(stopwords.words('english'))
+    st.error("Error: El corpus 'stopwords' para inglés no se encontró. Asegúrate de que esté en nltk_data/corpora/stopwords/english")
+    st.stop()
 
 try:
     nltk.data.find('tokenizers/punkt/english.pickle')
 except LookupError:
-    nltk.download('punkt')
+    st.error("Error: El tokenizer 'punkt' no se encontró. Asegúrate de que esté en nltk_data/tokenizers/punkt/english.pickle (y posiblemente subcarpetas)")
+    st.stop()
 
 try:
     nltk.data.find('corpora/wordnet')
 except LookupError:
-    nltk.download('wordnet')
-
+    st.error("Error: El corpus 'wordnet' no se encontró. Asegúrate de que esté en nltk_data/corpora/wordnet/")
+    st.stop()
 
 def obtener_palabras_filtradas_nltk_multiidioma(texto, idioma='es'):
     if idioma == 'es':
@@ -53,7 +51,6 @@ def obtener_palabras_filtradas_nltk_multiidioma(texto, idioma='es'):
     ]
     return Counter(palabras_filtradas)
 
-
 def generar_nube_palabras(frecuencia_palabras, nombre, max_words):
     wordcloud = WordCloud(width=800, height=400,
                           background_color='black', colormap='YlGnBu_r', max_words=max_words).generate_from_frequencies(frecuencia_palabras)
@@ -63,11 +60,9 @@ def generar_nube_palabras(frecuencia_palabras, nombre, max_words):
     ax.axis('off')
     return fig
 
-
 st.title("Multi-Language WordCloud Comparator (NLTK)")
 st.markdown("This app generates word clouds for two texts in English and Spanish using NLTK.")
 st.markdown("You can compare the most frequent words in each text.")
-
 
 with st.sidebar:
     st.header("How to use this app")
@@ -80,21 +75,17 @@ with st.sidebar:
     st.markdown("7. The app will also show a bar chart comparing the frequencies of the most common words.")
     st.markdown("Made by Nicola Korff (NLTK Version)")
 
-
 texto1 = st.text_area("Insert the first text here", height=200)
 idioma1 = st.selectbox("Language for Text 1", ["es", "en"], index=0)
 
 texto2 = st.text_area("Insert the second text here", height=200)
 idioma2 = st.selectbox("Language for Text 2", ["es", "en"], index=1)
 
-
 max_palabras_nube = st.slider("Max words in WordCloud", 50, 300, 100)
 num_palabras_grafico = st.slider("Number of words to show in the chart", 5, 20, 10)
 
-
 if "sort_by" not in st.session_state:
     st.session_state["sort_by"] = None
-
 
 if st.button("Generate WordCloud and Comparison"):
     with st.spinner("Generating Word Clouds..."):
@@ -112,14 +103,12 @@ if st.button("Generate WordCloud and Comparison"):
             with col2:
                 st.pyplot(fig2)
 
-
             st.subheader("Comparison of Word Frequencies")
             all_words = set(frecuencia1.keys()) | set(frecuencia2.keys())
             data = {'Word': list(all_words)}
             data[f'Frequency Text 1 ({idioma1})'] = [frecuencia1.get(word, 0) for word in data['Word']]
             data[f'Frequency Text 2 ({idioma2})'] = [frecuencia2.get(word, 0) for word in data['Word']]
             df_comparacion = pd.DataFrame(data)
-
 
             def palabras_significativas(row):
                 freq1 = row[f'Frequency Text 1 ({idioma1})']
@@ -133,7 +122,6 @@ if st.button("Generate WordCloud and Comparison"):
                 elif freq2 > freq1 * 2 and freq2 > 5:
                     return f'Significantly more in Text 2'
                 return ''
-            
 
             df_comparacion['Significance'] = df_comparacion.apply(palabras_significativas, axis=1)
 
@@ -143,7 +131,6 @@ if st.button("Generate WordCloud and Comparison"):
                 df_comparacion = df_comparacion.sort_values(by=st.session_state["sort_by"], ascending=False)
             st.dataframe(df_comparacion, use_container_width=True)
 
-
             st.subheader("Word Frequency Chart (Top by Total Frequency)")
             frecuencia_total = Counter(frecuencia1) + Counter(frecuencia2)
             top_palabras_total = [word for word, freq in frecuencia_total.most_common(num_palabras_grafico)]
@@ -152,12 +139,10 @@ if st.button("Generate WordCloud and Comparison"):
             data_grafico[f'Frequency Text 2 ({idioma2})'] = [frecuencia2.get(word, 0) for word in top_palabras_total]
             df_grafico = pd.DataFrame(data_grafico)
 
-
             melted_df_total = pd.melt(df_grafico, id_vars=['Word'], var_name='Text', value_name='Frequency')
             colores_personalizados = {
                 f'Frequency Text 1 ({idioma1})': '#6accbc',
                 f'Frequency Text 2 ({idioma2})': '#158fad',}
-            
 
             chart = alt.Chart(melted_df_total).mark_bar().encode(
                 x=alt.X('Word:N', sort='-y', title='Word'),
