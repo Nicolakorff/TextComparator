@@ -1,6 +1,6 @@
-spacy
+streamlit
+nltk
 pandas
 matplotlib
 wordcloud
 altair
-streamlit
