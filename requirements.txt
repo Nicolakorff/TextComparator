@@ -1,4 +1,4 @@
-spacy==3.1.0
+spacy
 pandas
 matplotlib
 wordcloud
