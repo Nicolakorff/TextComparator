@@ -4,6 +4,8 @@ import nltk
 
 nltk_data_path = os.path.join(os.getcwd(), "nltk_data")
 nltk.data.path.append(nltk_data_path)
+nltk_tokenizers_path = os.path.join(nltk_data_path, "tokenizers")
+nltk.data.path.append(nltk_tokenizers_path)
 
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
