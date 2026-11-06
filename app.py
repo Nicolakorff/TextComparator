@@ -1,168 +1,128 @@
-import streamlit as st
-import nltk
-import os
+from pathlib import Path
 
-nltk_data_path = os.path.join(os.getcwd(), "nltk_data")
-nltk.data.path.insert(0, nltk_data_path)
-
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
-from collections import Counter
-import pandas as pd
-import matplotlib.pyplot as plt
-from wordcloud import WordCloud
 import altair as alt
+import matplotlib.pyplot as plt
+import pandas as pd
+import streamlit as st
+from wordcloud import WordCloud
 
-try:
-    stopwords_es = set(stopwords.words('spanish'))
-except LookupError:
-    st.error("Error: El corpus 'stopwords' para español no se encontró. Asegúrate de que esté en nltk_data/corpora/stopwords/spanish")
-    st.stop()
+from textcomparator import analysis as an
 
-try:
-    stopwords_en = set(stopwords.words('english'))
-except LookupError:
-    st.error("Error: El corpus 'stopwords' para inglés no se encontró. Asegúrate de que esté en nltk_data/corpora/stopwords/english")
-    st.stop()
+st.set_page_config(page_title="Text Comparator", layout="wide")
+DATA = Path(__file__).parent / "data"
+LANGS = {"Spanish": "es", "English": "en"}
+COLORS = {"Text 1": "#2a9d8f", "Text 2": "#e9a03b"}
 
-try:
-    nltk.data.find('tokenizers/punkt/english.pickle')
-except LookupError:
-    st.error("Error: El tokenizer 'punkt' no se encontró. Asegúrate de que esté en nltk_data/tokenizers/punkt/english.pickle (y posiblemente subcarpetas)")
-    st.stop()
 
-try:
-    nltk.data.find('corpora/wordnet')
-except LookupError:
-    st.error("Error: El corpus 'wordnet' no se encontró. Asegúrate de que esté en nltk_data/corpora/wordnet/")
-    st.stop()
+def load_samples():
+    st.session_state["text1"] = (DATA / "sample_A.txt").read_text(encoding="utf-8")
+    st.session_state["text2"] = (DATA / "sample_B.txt").read_text(encoding="utf-8")
+    st.session_state["lang_name"] = "Spanish"
 
-def obtener_palabras_filtradas_nltk_multiidioma(texto, idioma='es'):
-    if idioma == 'es':
-        stop_words = stopwords_es
-    elif idioma == 'en':
-        stop_words = stopwords_en
-    else:
-        return Counter()
 
-    word_tokens = word_tokenize(texto.lower())
-    palabras_filtradas = [
-        w for w in word_tokens if w.isalpha() and w not in stop_words
-    ]
-    return Counter(palabras_filtradas)
+@st.cache_data(show_spinner="Analysing…")
+def analyse(t1, t2, lang, lemmatize, min_total, extra):
+    tok1 = an.tokenize(t1, lang, lemmatize, extra)
+    tok2 = an.tokenize(t2, lang, lemmatize, extra)
+    return {
+        "stats": pd.DataFrame({"Text 1": an.text_stats(t1, tok1), "Text 2": an.text_stats(t2, tok2)}),
+        "keyness": an.keyness_table(tok1, tok2, min_total),
+    }
 
-def generar_nube_palabras(frecuencia_palabras, nombre, max_words):
-    wordcloud = WordCloud(width=800, height=400,
-                          background_color='black', colormap='YlGnBu_r', max_words=max_words).generate_from_frequencies(frecuencia_palabras)
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.imshow(wordcloud, interpolation='bilinear')
-    ax.set_title(nombre)
-    ax.axis('off')
+
+def cloud(df, text_label, max_words):
+    sub = df[df["more_in"] == text_label]
+    weights = {w: abs(g) for w, g in zip(sub["word"], sub["G2"]) if abs(g) >= an.G2_P01}
+    if not weights:
+        return None
+    wc = WordCloud(width=700, height=380, background_color="white", max_words=max_words, collocations=False,
+                   color_func=lambda *a, **k: COLORS[text_label]).generate_from_frequencies(weights)
+    fig, ax = plt.subplots(figsize=(7, 3.8))
+    ax.imshow(wc, interpolation="bilinear"); ax.axis("off")
     return fig
 
-st.title("Multi-Language WordCloud Comparator (NLTK)")
-st.markdown("This app generates word clouds for two texts in English and Spanish using NLTK.")
-st.markdown("You can compare the most frequent words in each text.")
+
+st.title("Text Comparator")
+st.caption("Which words characterise each of two texts? Keyness analysis with log-likelihood (G²) and "
+           "log-odds ratios, controlling for text length.")
 
 with st.sidebar:
-    st.header("How to use this app")
-    st.markdown("1. Insert the texts to compare in the main area.")
-    st.markdown("2. Select the language for each text.")
-    st.markdown("3. Adjust the maximum number of words for the word clouds.")
-    st.markdown("4. Click the button to generate the word clouds and comparison table.")
-    st.markdown("5. The app will display the word clouds and a comparison table with the frequencies of each word.")
-    st.markdown("6. You can sort columns in ascending or descending order by simply clicking on the column header.")
-    st.markdown("7. The app will also show a bar chart comparing the frequencies of the most common words.")
-    st.markdown("Made by Nicola Korff (NLTK Version)")
+    st.header("Settings")
+    st.button("Load sample texts", on_click=load_samples, help="Two Spanish political speeches of different length.")
+    lang_name = st.selectbox("Language of both texts", list(LANGS), key="lang_name")
+    lang = LANGS[lang_name]
+    can_lemma = an.lemmatizer_available(lang)
+    lemmatize = st.checkbox("Lemmatize (spaCy)", value=can_lemma, disabled=not can_lemma,
+                            help="Groups inflected forms: 'gobiernos' → 'gobierno'.")
+    min_total = st.slider("Minimum total occurrences", 1, 20, 5)
+    extra = tuple(w.strip() for w in st.text_input("Extra stopwords (comma-separated)").split(",") if w.strip())
+    top_n = st.slider("Words shown per text", 5, 30, 15)
 
-texto1 = st.text_area("Insert the first text here", height=200)
-idioma1 = st.selectbox("Language for Text 1", ["es", "en"], index=0)
+c1, c2 = st.columns(2)
+text1 = c1.text_area("Text 1", height=180, key="text1")
+text2 = c2.text_area("Text 2", height=180, key="text2")
 
-texto2 = st.text_area("Insert the second text here", height=200)
-idioma2 = st.selectbox("Language for Text 2", ["es", "en"], index=1)
+if not (text1.strip() and text2.strip()):
+    st.info("Paste two texts, or click **Load sample texts** in the sidebar.")
+    st.stop()
 
-max_palabras_nube = st.slider("Max words in WordCloud", 50, 300, 100)
-num_palabras_grafico = st.slider("Number of words to show in the chart", 5, 20, 10)
+res = analyse(text1, text2, lang, lemmatize, min_total, extra)
+key = res["keyness"]
+if key.empty:
+    st.warning("No words reach the minimum number of occurrences. Lower the threshold or use longer texts.")
+    st.stop()
 
-if "sort_by" not in st.session_state:
-    st.session_state["sort_by"] = None
+tab_dist, tab_stats, tab_cloud, tab_table, tab_method = st.tabs(
+    ["Distinctive words", "Text statistics", "Word clouds", "Full table", "Method"])
 
-if st.button("Generate WordCloud and Comparison"):
-    with st.spinner("Generating Word Clouds..."):
-        if texto1 and texto2:
-            frecuencia1 = obtener_palabras_filtradas_nltk_multiidioma(texto1, idioma1)
-            fig1 = generar_nube_palabras(frecuencia1, f"Text 1 ({idioma1})", max_palabras_nube)
+with tab_dist:
+    top = pd.concat([key[key["more_in"] == t].head(top_n) for t in ("Text 1", "Text 2")])
+    chart = alt.Chart(top).mark_bar().encode(
+        x=alt.X("G2:Q", title="← more in Text 2 · log-likelihood G² · more in Text 1 →"),
+        y=alt.Y("word:N", sort=alt.EncodingSortField("G2", order="descending"), title=None,
+                axis=alt.Axis(labelOverlap=False, labelLimit=200)),
+        color=alt.Color("more_in:N", scale=alt.Scale(domain=list(COLORS), range=list(COLORS.values())), title=None),
+        tooltip=["word", "count_1", "count_2", "per_1000_1", "per_1000_2", "G2", "log_odds_z", "evidence"],
+    ).properties(height=max(300, 18 * len(top)))
+    st.altair_chart(chart, use_container_width=True)
+    n_strong = int((key["evidence"] == "p < 0.0001").sum())
+    st.caption(f"{len(key)} words analysed; {n_strong} differ at p < 0.0001 (uncorrected for multiple comparisons). "
+               "Keyness shows *what differs in vocabulary* — often topic and context — not why.")
 
-            frecuencia2 = obtener_palabras_filtradas_nltk_multiidioma(texto2, idioma2)
-            fig2 = generar_nube_palabras(frecuencia2, f"Text 2 ({idioma2})", max_palabras_nube)
+with tab_stats:
+    st.dataframe(res["stats"], use_container_width=True)
+    st.caption("MATTR is a moving-average type/token ratio: unlike the plain ratio, it does not fall just because a text is longer.")
 
-            st.subheader("Word Clouds")
-            col1, col2 = st.columns(2)
-            with col1:
-                st.pyplot(fig1)
-            with col2:
-                st.pyplot(fig2)
-
-            st.subheader("Comparison of Word Frequencies")
-            all_words = set(frecuencia1.keys()) | set(frecuencia2.keys())
-            data = {'Word': list(all_words)}
-            data[f'Frequency Text 1 ({idioma1})'] = [frecuencia1.get(word, 0) for word in data['Word']]
-            data[f'Frequency Text 2 ({idioma2})'] = [frecuencia2.get(word, 0) for word in data['Word']]
-            df_comparacion = pd.DataFrame(data)
-
-            def palabras_significativas(row):
-                freq1 = row[f'Frequency Text 1 ({idioma1})']
-                freq2 = row[f'Frequency Text 2 ({idioma2})']
-                if freq1 > 0 and freq2 == 0:
-                    return f'Exclusive to Text 1'
-                elif freq2 > 0 and freq1 == 0:
-                    return f'Exclusive to Text 2'
-                elif freq1 > freq2 * 2 and freq1 > 5:
-                    return f'Significantly more in Text 1'
-                elif freq2 > freq1 * 2 and freq2 > 5:
-                    return f'Significantly more in Text 2'
-                return ''
-
-            df_comparacion['Significance'] = df_comparacion.apply(palabras_significativas, axis=1)
-
-            col_orden1, col_orden2 = st.columns(2)
-
-            if st.session_state["sort_by"]:
-                df_comparacion = df_comparacion.sort_values(by=st.session_state["sort_by"], ascending=False)
-            st.dataframe(df_comparacion, use_container_width=True)
-
-            st.subheader("Word Frequency Chart (Top by Total Frequency)")
-            frecuencia_total = Counter(frecuencia1) + Counter(frecuencia2)
-            top_palabras_total = [word for word, freq in frecuencia_total.most_common(num_palabras_grafico)]
-            data_grafico = {'Word': top_palabras_total}
-            data_grafico[f'Frequency Text 1 ({idioma1})'] = [frecuencia1.get(word, 0) for word in top_palabras_total]
-            data_grafico[f'Frequency Text 2 ({idioma2})'] = [frecuencia2.get(word, 0) for word in top_palabras_total]
-            df_grafico = pd.DataFrame(data_grafico)
-
-            melted_df_total = pd.melt(df_grafico, id_vars=['Word'], var_name='Text', value_name='Frequency')
-            colores_personalizados = {
-                f'Frequency Text 1 ({idioma1})': '#6accbc',
-                f'Frequency Text 2 ({idioma2})': '#158fad',}
-
-            chart = alt.Chart(melted_df_total).mark_bar().encode(
-                x=alt.X('Word:N', sort='-y', title='Word'),
-                y=alt.Y('Frequency:Q', title='Frequency'),
-                color=alt.Color('Text:N',
-                                scale=alt.Scale(domain=list(colores_personalizados.keys()),
-                                                range=list(colores_personalizados.values())),
-                                legend=alt.Legend(title="Text")),
-                tooltip=['Word:N', 'Text:N', 'Frequency:Q']
-            ).properties(
-                width=700,
-                height=400,
-                title="Word Frequency Comparison"
-            ).configure_axis(
-                labelFontSize=12,
-                titleFontSize=14
-            ).configure_title(
-                fontSize=18)
-
-            st.altair_chart(chart, use_container_width=True)
-
+with tab_cloud:
+    st.caption("Size = strength of the difference (G²), not raw frequency. Only words significant at p < 0.01 are shown.")
+    cc1, cc2 = st.columns(2)
+    for col, label in ((cc1, "Text 1"), (cc2, "Text 2")):
+        fig = cloud(key, label, 80)
+        col.subheader(f"Distinctive of {label}")
+        if fig is None:
+            col.write("No significant words.")
         else:
-            st.warning("Please insert both texts.")
+            col.pyplot(fig); plt.close(fig)
+
+with tab_table:
+    only = st.radio("Show", ["All", "Text 1", "Text 2"], horizontal=True)
+    view = key if only == "All" else key[key["more_in"] == only]
+    st.dataframe(view, use_container_width=True, hide_index=True)
+    st.download_button("Download CSV", view.to_csv(index=False).encode("utf-8"), "keyness.csv", "text/csv")
+
+with tab_method:
+    st.markdown("""
+**Tokens.** Alphabetic words, lowercased, without stopwords (spaCy lists); optionally lemmatized.
+
+**Rates.** Occurrences per 1,000 content tokens, so texts of different length are comparable.
+
+**Log-likelihood (G²).** Dunning's test of whether a word's rate differs between the texts
+(1 degree of freedom: 6.63 ↔ p < 0.01, 15.13 ↔ p < 0.0001). With hundreds of words tested, some false
+positives are expected; treat the ranking as exploratory.
+
+**Log-odds z-score.** Log-odds ratio with an informative Dirichlet prior (Monroe, Colaresi & Quinn, 2008),
+which shrinks rare words so they do not dominate the ranking.
+
+**Limits.** Both texts must be in the same language. Results depend on stopwords and lemmatization,
+and differences usually reflect topic and setting as much as style.
+""")

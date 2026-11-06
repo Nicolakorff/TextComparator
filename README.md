@@ -1,91 +1,85 @@
-# TextComparator
+# Text Comparator: Which Words Characterise Each Text?
 
-This Streamlit application allows users to compare the most frequent words in two text inputs, supporting both English and Spanish. It generates interactive word clouds for each text and provides a comparison table of word frequencies, highlighting words that are significantly more frequent or exclusive to one of the texts. Additionally, it displays a bar chart visualizing the top word frequencies across both texts.
+Streamlit app that compares the vocabulary of two texts (Spanish or English) and shows the words that are statistically more typical of one than of the other (**keyness analysis**), together with basic stylistic measures. It controls for text length, which a plain frequency comparison does not.
 
-**Try it!!** -> [Text Comparator](https://textcomparator-9w7v.onrender.com/)
+**[Live app →](https://textcomparator-9w7v.onrender.com/)** (free hosting: the first load after inactivity can take about a minute)
 
-## Features
+![Distinctive words](docs/distinctive_words.png)
 
-- **Multi-Language Support:** Processes text in both English and Spanish.
-- **Interactive Word Clouds:** Generates visual representations of the most frequent words in each text.
-- **Word Frequency Comparison Table:** Displays the frequency of each word in both texts, with sorting functionality.
-- **Significance Highlighting:** Identifies words that are exclusive to one text or significantly more frequent in one over the other.
-- **Top Word Frequency Chart:** Shows a bar chart comparing the frequencies of the most common words across both inputs.
-- **User-Friendly Interface:** Built with Streamlit for an intuitive and easy-to-use experience.
+## What it does
 
-## How to Use
+- **Distinctive words:** ranks words by log-likelihood (G²) and shows which text each belongs to.
+- **Log-odds z-score** with an informative Dirichlet prior (Monroe, Colaresi & Quinn, 2008), so rare words do not dominate the ranking.
+- **Rates per 1,000 tokens**, so texts of different length are comparable.
+- **Text statistics:** content words, distinct words, lexical diversity (MATTR, independent of length) and average sentence length.
+- **Word clouds sized by G²** (strength of difference), not raw frequency.
+- Optional **lemmatization** with spaCy, custom stopwords, adjustable frequency threshold and CSV export.
 
-1.  **Input Texts:** Enter the two texts you want to compare in the provided text areas. (I offer in the datos folder two speeches for the same occasion by two politicians so that you can see the difference in the use of words in each of them and the political intention with the manipulation of language behind them. 
-2.  **Select Languages:** Choose the language (English or Spanish) for each text using the dropdown menus.
-3.  **Word Cloud Settings:** Adjust the maximum number of words to display in the word clouds using the slider.
-4.  **Chart Settings:** Select the number of top words to show in the frequency bar chart.
-5.  **Generate Comparison:** Click the "Generate WordCloud and Comparison" button.
-6.  **View Results:** The application will display the word clouds side-by-side, a sortable table comparing word frequencies, and a bar chart visualizing the top words.
+![Word clouds of distinctive words](docs/word_clouds.png)
 
-## Deployment
+## Example
 
-This application is deployed on Render.
+The sample texts (`data/sample_*.txt`) are two Spanish-language political speeches of different length: an address to a provincial legislature (about 16,300 words) and an address to a national congress (about 8,200 words).
 
-## Technologies Used
+| | Text 1 | Text 2 |
+|---|---|---|
+| Content tokens after lemmatization | 7,053 | 3,265 |
+| Lexical diversity (MATTR-500) | 0.681 | 0.682 |
+| Average sentence length (words) | 21.6 | 25.7 |
 
-* [Streamlit](https://streamlit.io/): For building the interactive web application.
-* [NLTK (Natural Language Toolkit)](https://www.nltk.org/): For text processing, including tokenization and stop word removal.
-* [Pandas](https://pandas.pydata.org/): For creating and manipulating data tables.
-* [Matplotlib](https://matplotlib.org/): Used internally by `WordCloud`.
-* [WordCloud](https://amueller.github.io/word_cloud/): For generating word cloud visualizations.
-* [Altair](https://altair-viz.github.io/): For creating interactive bar charts.
+Most distinctive lemmas: *provincia* (G² = 69.9), *provincial*, *bonaerense*, *escuela*, *producción* for Text 1; *argentino* (G² = 52.2), *fiscal*, *eliminar*, *inflación*, *impuesto* for Text 2.
 
-## Installation (for local development)
+The lexical-diversity scores are almost identical, and the distinctive words mainly reflect **setting and topic** (provincial services versus national economic policy). Keyness shows what differs in vocabulary; it does not by itself show intent or style.
 
-1.  **Clone the repository:**
-    ```bash
-    git clone [URL_DEL_TU_REPOSITORIO]
-    cd [NOMBRE_DEL_REPOSITORIO]
-    ```
+## Run locally
 
-2.  **Create a virtual environment (recommended):**
-    ```bash
-    python -m venv venv
-    source venv/bin/activate  # On macOS/Linux
-    venv\Scripts\activate  # On Windows
-    ```
+```bash
+git clone https://github.com/Nicolakorff/TextComparator.git
+cd TextComparator
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+streamlit run app.py
+pytest
+```
 
-3.  **Install dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
+`requirements.txt` installs the spaCy models for Spanish and English. Without them the app still works, with lemmatization disabled.
 
-4.  **Download NLTK data (important for local execution):**
-    ```python
-    import nltk
-    nltk.download('punkt')
-    nltk.download('punkt_tab')
-    nltk.download('stopwords')
-    nltk.download('wordnet')
-    ```
-    You might need to download other resources if you expand the language support.
+## Method in brief
 
-5.  **Run the Streamlit application:**
-    ```bash
-    streamlit run app.py
-    ```
+| Step | Detail |
+|---|---|
+| Tokens | Alphabetic words, lowercased, spaCy stopword lists; optional lemmatization |
+| Rate | Occurrences per 1,000 content tokens |
+| G² | Dunning's log-likelihood; 6.63 ↔ p < 0.01, 15.13 ↔ p < 0.0001 (1 d.f.) |
+| Log-odds z | Log-odds ratio with informative Dirichlet prior |
+| MATTR | Moving-average type/token ratio, window 500 |
 
-## Contributing
+## Repository structure
 
-Contributions to this project are welcome. If you have ideas for improving the application or have found a bug, please feel free to open an issue or submit a pull request.
+```
+├── app.py                    # Streamlit interface
+├── textcomparator/analysis.py  # tokenization, keyness, statistics
+├── tests/                    # unit tests and an app smoke test
+├── data/                     # sample texts
+├── docs/                     # screenshots
+├── render.yaml               # Render deployment
+└── requirements.txt
+```
+
+## Limitations
+
+- **Both texts must be in the same language** (Spanish or English); comparing across languages is not meaningful.
+- With hundreds of words tested, some false positives are expected: p-values are **not corrected** for multiple comparisons, so use the ranking as exploratory.
+- Results depend on stopword lists and lemmatization; spaCy's small models make some lemmatization errors.
+- Differences reflect topic and occasion as much as style, and the sample comparison involves only two texts.
+- Single words only: no phrases (n-grams) or collocations yet.
+
+## Next steps
+
+- N-grams and collocations; keyness by part of speech.
+- Bootstrap confidence intervals and multiple-comparison correction.
+- More languages (German, Catalan).
 
 ## Author
 
-Nicola Korff [My Github](https://github.com/Nicolakorff/)
-
-## License
-
-MIT License
-
-
-![Captura de pantalla 2025-04-27 a las 11 26 18](https://github.com/user-attachments/assets/0b2d0604-f488-43bc-8f85-e705870dbb31)
-![Captura de pantalla 2025-04-27 a las 11 26 29](https://github.com/user-attachments/assets/71dc2c65-06af-4073-9d69-5d22362002b7)
-![Captura de pantalla 2025-04-27 a las 11 55 13](https://github.com/user-attachments/assets/cff3e991-34dc-4b38-a535-83ff7dd74776)
-![Captura de pantalla 2025-04-27 a las 11 53 15](https://github.com/user-attachments/assets/2c594605-0454-475d-b92f-f4e22195eb7e)
-![Captura de pantalla 2025-04-27 a las 11 53 27](https://github.com/user-attachments/assets/8eb82aae-fc2f-4562-89f7-bea77816719b)
-
+**Nicola Korff** · [LinkedIn](https://www.linkedin.com/in/nicola-korff/) · [GitHub](https://github.com/Nicolakorff)
